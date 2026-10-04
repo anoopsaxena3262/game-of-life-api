@@ -2,7 +2,7 @@
 
 Conway's Game of Life as a small HTTP service on .NET 10.
 
-This repository is the scaffold. Domain rules, persistence behaviour, and the four endpoints throw `NotImplementedException` and the API returns **501** for them. Liveness, readiness, OpenAPI, and the project boundaries are wired.
+Upload a board, read any generation, and walk it to its final state: extinct, a fixed point, or a cycle. Boards and computed generations are stored in SQLite and survive a restart. Errors are RFC 7807 problem documents.
 
 ## Run
 

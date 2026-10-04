@@ -6,13 +6,13 @@ Upload a board, read any generation, and walk it to its final state: extinct, a 
 
 ## Run
 
-Setup from a machine that has never used .NET, and how to call the service, is in [docs/developer-guide.md](docs/developer-guide.md). The design and the reasons behind it are in [docs/design.md](docs/design.md).
+Setup from a machine that has never used .NET, and how to call the service, is in [docs/developer-guide.md](docs/developer-guide.md). The design and the reasons behind it are in [docs/design.md](docs/design.md); section 10 lists every difference from the Java implementation and why.
 
 ```bash
 dotnet run --project src/GameOfLife.Api --launch-profile http
 ```
 
-The service listens on `http://localhost:8080`. Scalar is at `/scalar` in Development. On startup it creates `data/game-of-life.db` under the repository root, with its tables. `./restart.sh` asks whether to keep or delete that file first.
+The service listens on `http://localhost:8080`. On startup it creates `data/game-of-life.db` under the repository root, with its tables. `./restart.sh` asks whether to keep or delete that file first.
 
 In a second terminal:
 
@@ -29,7 +29,7 @@ In a second terminal:
 dotnet test
 ```
 
-Every test uses its own temporary SQLite file. No Docker or running service is needed.
+Every test uses its own temporary SQLite file. No running service is needed.
 
 ## API
 
@@ -47,9 +47,9 @@ Every test uses its own temporary SQLite file. No Docker or running service is n
 |---|---|
 | `src/GameOfLife.Domain` | Rules, state encoding, termination detection. No packages, no I/O. |
 | `src/GameOfLife.Application` | `BoardService`, limits and their validation, the `IBoardRepository` port. |
-| `src/GameOfLife.Infrastructure` | SQLite via `Microsoft.Data.Sqlite`: schema at startup, repository, health check. |
-| `src/GameOfLife.Api` | Minimal API endpoints, problem details, request-size limit, health, OpenAPI, Serilog, OpenTelemetry. |
-| `tests/` | One test project per layer, plus `GameOfLife.Benchmarks` for the engine step. |
+| `src/GameOfLife.Infrastructure` | SQLite via `Microsoft.Data.Sqlite`: schema at startup, repository. |
+| `src/GameOfLife.Api` | Minimal API endpoints, problem details, request-size limit, console logging. |
+| `tests/` | One test project per layer. |
 | `try-it.sh`, `try-all.sh`, `scripts/` | HTTP scenarios against a running service. |
 | `try-restart.sh`, `restart.sh` | The restart demo, and a start that asks about the existing database. |
 | `docs/` | Developer guide and design. |

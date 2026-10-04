@@ -12,7 +12,7 @@ Setup from a machine that has never used .NET, and how to call the service, is i
 dotnet run --project src/GameOfLife.Api --launch-profile http
 ```
 
-The HTTP profile listens on `http://localhost:8080`. Scalar is at `/scalar` in Development. SQLite is used at `data/game-of-life.db`. Command-line steps are in the developer guide.
+The HTTP profile listens on `http://localhost:8080`. Scalar is at `/scalar` in Development. SQLite is created at `data/game-of-life.db` under the repository root, with its tables, on startup. Command-line steps are in the developer guide.
 
 ```bash
 dotnet test

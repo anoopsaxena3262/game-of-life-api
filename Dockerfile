@@ -16,7 +16,7 @@ COPY --from=build /app ./
 USER appuser
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Development \
-    ConnectionStrings__Default="Data Source=/data/game-of-life.db"
+    ConnectionStrings__Default="Data Source=/data/game-of-life.db;Default Timeout=5"
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl --fail http://localhost:8080/health/live || exit 1

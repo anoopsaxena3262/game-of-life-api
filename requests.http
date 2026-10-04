@@ -1,28 +1,52 @@
+### The same calls as the demo scripts, one at a time.
+### Works in Visual Studio, Rider and the VS Code REST Client.
+### Start the service first: dotnet run --project src/GameOfLife.Api --launch-profile http
+
 @base = http://localhost:8080
 
-### live
+### Liveness and readiness.
 GET {{base}}/health/live
 
-### ready
+###
 GET {{base}}/health/ready
 
-### 1. upload a blinker
-# @name upload
+### Upload a blinker (3x3, horizontal phase). Returns 201 + Location.
 POST {{base}}/api/v1/boards
 Content-Type: application/json
 
 {
   "width": 3,
   "height": 3,
-  "cells": [[false, false, false], [true, true, true], [false, false, false]]
+  "cells": [
+    [false, false, false],
+    [true,  true,  true ],
+    [false, false, false]
+  ]
 }
 
-### 2. next state
-@id = replace-with-id
+### Paste the id from the upload's Location header here.
+@id = 00000000-0000-0000-0000-000000000000
+
+### Board metadata and generation 0.
+GET {{base}}/api/v1/boards/{{id}}
+
+### One generation forward. Call it twice -- the answer does not change.
 GET {{base}}/api/v1/boards/{{id}}/next
 
-### 3. generation 4
-GET {{base}}/api/v1/boards/{{id}}/generations/4
+### Ten generations away. A blinker at an even index matches generation 0.
+GET {{base}}/api/v1/boards/{{id}}/generations/10
 
-### 4. final state
+### Final state. A blinker reports CYCLE with period 2.
 GET {{base}}/api/v1/boards/{{id}}/final
+
+### Final state with an explicit limit.
+GET {{base}}/api/v1/boards/{{id}}/final?maxGenerations=50
+
+### Final state that gives up. A blinker needs two steps to see its cycle, so a limit of 1 is 422.
+GET {{base}}/api/v1/boards/{{id}}/final?maxGenerations=1
+
+### 400: maxGenerations must be at least 1.
+GET {{base}}/api/v1/boards/{{id}}/final?maxGenerations=0
+
+### 404: no board with this id.
+GET {{base}}/api/v1/boards/00000000-0000-0000-0000-000000000000

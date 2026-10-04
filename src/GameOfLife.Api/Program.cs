@@ -8,12 +8,17 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, configuration) =>
     configuration
         .MinimumLevel.Information()
+        // The service's own loggers. Debug adds cache hits, misses and resume indexes.
+        .MinimumLevel.Override(
+            "GameOfLife",
+            context.Configuration.GetValue("Serilog:MinimumLevel:Override:GameOfLife", LogEventLevel.Information))
         .Enrich.FromLogContext()
         .WriteTo.Console());
 

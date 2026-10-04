@@ -55,9 +55,10 @@ demo_upload() {
   local json="$1"
   local label="$2"
   demo_section "POST /api/v1/boards  ($label)"
-  curl -sS -D "$HEADERS" -o "$BODY" -X POST "$BASE/api/v1/boards" \
+  # The body goes on stdin. A 300x300 board is over Linux's 128 KB limit for one argument.
+  printf '%s' "$json" | curl -sS -D "$HEADERS" -o "$BODY" -X POST "$BASE/api/v1/boards" \
     -H 'Content-Type: application/json' \
-    -d "$json"
+    --data-binary @-
   local status location
   status=$(awk 'NR==1 { print $2 }' "$HEADERS" | tr -d '\r')
   location=$(awk 'tolower($1)=="location:" { print $2 }' "$HEADERS" | tr -d '\r')
@@ -99,9 +100,9 @@ demo_request() {
   echo "$method $path"
   local code
   if [[ -n "$json" ]]; then
-    code=$(curl -sS -D "$HEADERS" -o "$BODY" -w '%{http_code}' -X "$method" "$BASE$path" \
+    code=$(printf '%s' "$json" | curl -sS -D "$HEADERS" -o "$BODY" -w '%{http_code}' -X "$method" "$BASE$path" \
       -H 'Content-Type: application/json' \
-      -d "$json")
+      --data-binary @-)
   else
     code=$(curl -sS -D "$HEADERS" -o "$BODY" -w '%{http_code}' -X "$method" "$BASE$path")
   fi

@@ -12,13 +12,13 @@ Setup from a machine that has never used .NET, and how to call the service, is i
 dotnet run --project src/GameOfLife.Api --launch-profile http
 ```
 
-The HTTP profile listens on `http://localhost:8080`. Scalar is at `/scalar` in Development. SQLite is created at `data/game-of-life.db`, and migrations run on startup in Development. Command-line steps are in the developer guide.
+The HTTP profile listens on `http://localhost:8080`. Scalar is at `/scalar` in Development. SQLite is used at `data/game-of-life.db`. Command-line steps are in the developer guide.
 
 ```bash
 dotnet test
 ```
 
-The default test run uses SQLite only. Postgres via Testcontainers is in the integration project and is not part of that run.
+Tests use SQLite only. Integration tests use a temporary database file.
 
 ## Layout
 
@@ -26,5 +26,5 @@ The default test run uses SQLite only. Postgres via Testcontainers is in the int
 |---|---|
 | `src/GameOfLife.Domain` | Rules and grid. No I/O. |
 | `src/GameOfLife.Application` | Use cases, ports, options. |
-| `src/GameOfLife.Infrastructure` | EF Core. SQLite by default, Postgres by `Persistence:Provider`. |
+| `src/GameOfLife.Infrastructure` | SQLite via `Microsoft.Data.Sqlite`. |
 | `src/GameOfLife.Api` | Minimal API, problem details, health, OpenAPI, Serilog, OpenTelemetry. |

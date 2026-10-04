@@ -159,7 +159,7 @@ B3/S23. A live cell with two or three live neighbours survives; a dead cell with
 
 ### 4.2 Implementation
 
-The grid is a `bool[][]` indexed `[row][column]`, the same layout `StateCodec` uses. Each step allocates the next grid and writes into it; the input is never changed. Interior and border cells use the same bounds-checked neighbour count. One step on a 300×300 board takes about 2 ms (`tests/GameOfLife.Benchmarks`).
+The grid is a `bool[][]` indexed `[row][column]`, the same layout `StateCodec` uses. Each step allocates the next grid and writes into it; the input is never changed. Interior and border cells use the same bounds-checked neighbour count. One step on a 300×300 board takes about 2 ms.
 
 ### 4.3 Termination detection
 
@@ -314,12 +314,36 @@ SQLite allows one writer at a time. Readers proceed concurrently because the fil
 
 ## 9. Logging
 
-Logs go to the console through Serilog. The default level is Information. Grids are not logged. A board can be 90,000 cells, and the stored `0`/`1` string is already visible in SQLite.
+Logs go to the console through the built-in .NET console logger, one line per entry. Levels are in `Logging:LogLevel`; the default is Information. Grids are not logged. A board can be 90,000 cells, and the stored `0`/`1` string is already visible in SQLite.
 
 | Level | What is logged |
 |---|---|
 | Information | Startup, the limits from configuration, schema ready, each HTTP call, a board saved, and the outcome of `/final` (kind, period, generations). |
 | Warning | 400 and 404, a caller `maxGenerations` clamped to the ceiling, and a generation cache that has a later row but not the one requested. |
-| Debug | Repository calls with ids and indexes, cache hits, and the index a walk resumes from. Turn it on with `Serilog:MinimumLevel:Override:GameOfLife=Debug`. |
+| Debug | Repository calls with ids and indexes, cache hits, and the index a walk resumes from. Turn it on with `Logging:LogLevel:GameOfLife=Debug`. |
 
 A 422 is Information. Reaching the generation cap is a documented result, not a fault. Unexpected failures are logged at Error with the exception and returned as a 500 problem document.
+
+## 10. Differences from the Java implementation
+
+This service is a port of a Java 25 / Spring Boot implementation. The API, the stored schema, the limits, the rules and the demo scripts are the same. The table lists every place the .NET version differs, and why. Anything not listed behaves the same.
+
+| Area | Java | .NET | Why |
+|---|---|---|---|
+| Structure | One Maven module, packages `web`, `service`, `domain`, `repository` | Four projects: `Api`, `Application`, `Domain`, `Infrastructure` | Project references make the layer rules a compile-time check: `Domain` cannot reference ASP.NET or SQLite. In Java the same boundary is a convention. |
+| Start command | `mvn spring-boot:run` | `dotnet run --project src/GameOfLife.Api --launch-profile http` | Platform tooling. |
+| Database path | `data/game-of-life.db`, relative to the directory Maven runs in | The `http` launch profile sets `../../data/game-of-life.db` | `dotnet run` starts the app in the project folder, not the repository root. The relative path puts the file in the same place, `data/` under the repository root. |
+| Configuration | `application.yml`, `game-of-life.max-cells`, … | `appsettings.json`, `GameOfLife:MaxCells`, … | .NET configuration conventions. Same five limits, same defaults, same startup checks. |
+| Data access | `JdbcClient` over a Hikari pool | ADO.NET over `Microsoft.Data.Sqlite`, which pools connections itself | Platform equivalent. Same SQL. |
+| Foreign keys and busy wait | Hikari `connection-init-sql: PRAGMA foreign_keys=ON`; `busy_timeout=5000` on the JDBC URL | `Foreign Keys=True` (set in code) and `Default Timeout=5` on the connection string | The .NET driver turns foreign keys on per connection from the connection string, and retries a locked database until `Default Timeout` (seconds) runs out. Same effect. |
+| `created_at` precision | `Instant.toString()`: 0, 3, 6 or 9 fractional digits | Up to 7 fractional digits, trailing zeros dropped | .NET timestamps have 100 ns resolution. Both are ISO-8601 UTC ending in `Z`. |
+| Async | Synchronous service and repository | `async` service and repository | Idiomatic for ASP.NET Core. The order of reads and writes is the same. |
+| Request binding and validation | Jackson plus Bean Validation (`@Min(1)`, `@NotNull`) | The endpoints read the body and parse `id`, `n` and `maxGenerations` themselves, with the same messages | Minimal APIs have no Bean Validation equivalent, and framework binding answers a malformed GUID with 404 (route constraint) and a bad body with an empty 400. Parsing in the endpoint keeps every status, title and detail the same. |
+| Id format accepted | `UUID.fromString`, which also accepts short forms such as `1-1-1-1-1` | Canonical 8-4-4-4-12 only, either case | .NET has no lenient UUID parser with the same rules. A short-form id is a 400 here; in Java it would be a 404. |
+| Cell values | Jackson accepts `true`/`false`, and also coerces `1`/`0` and `"true"`/`"false"` | Only `true`/`false`; anything else is a 400 `Bad Request` | System.Text.Json does not coerce numbers or strings to booleans. The scripts send `true`/`false`. |
+| Framework error details | Spring writes its own `detail` for an unknown route, 405 and 415 | Same status and title; an unknown route and 405 have no `detail`, 415 names the content type | The texts come from each framework. The scripts check status and title. |
+| Logging | Logback; levels under `logging.level.life.simulation.engine`; TRACE per cell inside `LifeEngine` | Built-in console logger; levels under `Logging:LogLevel:GameOfLife`; no logging inside `Domain` | .NET gets loggers through dependency injection. The domain is static functions with no container, and a static global logger would be the only one in the codebase. The service logs the same outcomes. There is no per-cell TRACE. |
+| Tests | JUnit 5, AssertJ, Mockito; 72 tests | xUnit; 105 tests; a hand-written in-memory repository instead of mocks | No mocking library is needed for one interface. The extra tests pin the stored schema and the HTTP contract the scripts check. Java's "global validation message" handler test has no counterpart, because the .NET endpoints raise no object-level validation errors. |
+| Coverage | JaCoCo report on every `mvn test` | `coverlet` on request: `dotnet test --collect:"XPlat Code Coverage"` | Platform tooling. |
+| `requests.http` | Literal `{id}` placeholders | `@base` and `@id` variables | Variables work in Visual Studio, Rider and the VS Code REST Client. |
+| CI | None | GitHub Actions: build and test, then `./try-all.sh` and the `kill -9` restart against a running service | An addition, not a difference in behaviour. It runs the same scripts on every push. |

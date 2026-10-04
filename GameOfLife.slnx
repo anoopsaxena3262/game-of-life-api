@@ -8,7 +8,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/GameOfLife.Api.IntegrationTests/GameOfLife.Api.IntegrationTests.csproj" />
     <Project Path="tests/GameOfLife.Application.Tests/GameOfLife.Application.Tests.csproj" />
-    <Project Path="tests/GameOfLife.Benchmarks/GameOfLife.Benchmarks.csproj" />
     <Project Path="tests/GameOfLife.Domain.Tests/GameOfLife.Domain.Tests.csproj" />
     <Project Path="tests/GameOfLife.Infrastructure.Tests/GameOfLife.Infrastructure.Tests.csproj" />
   </Folder>

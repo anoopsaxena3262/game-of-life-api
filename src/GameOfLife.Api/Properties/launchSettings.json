@@ -10,16 +10,6 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ConnectionStrings__Default": "Data Source=../../data/game-of-life.db;Default Timeout=5"
       }
-    },
-    "https": {
-      "commandName": "Project",
-      "dotnetRunMessages": true,
-      "launchBrowser": false,
-      "applicationUrl": "https://localhost:7001;http://localhost:8080",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "ConnectionStrings__Default": "Data Source=../../data/game-of-life.db;Default Timeout=5"
-      }
     }
   }
 }

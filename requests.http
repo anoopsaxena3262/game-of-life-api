@@ -4,12 +4,6 @@
 
 @base = http://localhost:8080
 
-### Liveness and readiness.
-GET {{base}}/health/live
-
-###
-GET {{base}}/health/ready
-
 ### Upload a blinker (3x3, horizontal phase). Returns 201 + Location.
 POST {{base}}/api/v1/boards
 Content-Type: application/json

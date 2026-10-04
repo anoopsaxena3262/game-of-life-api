@@ -4,7 +4,7 @@ Set up a machine that has never used C# or .NET, then run the Game of Life API.
 
 The Game of Life API is a small web service. You show it from the command line by calling the API.
 
-The service stores boards in SQLite and serves the board endpoints, the health checks and the API docs page. The design and the reasons behind it are in [design.md](design.md). Day-to-day commands are here.
+The service stores boards in SQLite and serves the board endpoints. The design and the reasons behind it are in [design.md](design.md). Day-to-day commands are here.
 
 ## What you are installing
 
@@ -16,7 +16,7 @@ Three pieces, and only the first is required to run the service:
 | Git | Copies the repository onto your machine. | Only if you do not already have the folder |
 | An editor | Visual Studio Code is enough. | Helpful, not required to run |
 
-You do not need Docker or a paid IDE to run or test the service.
+You do not need a database server, a container runtime or a paid IDE to run or test the service.
 
 This repository asks for SDK **10.0.x**. `global.json` accepts any 10.0 patch. An older SDK, such as 8 or 9, will not build it.
 
@@ -149,22 +149,12 @@ Stop it with **Ctrl+C** in that same terminal.
 
 What starts:
 
-- The API listens on [http://localhost:8080](http://localhost:8080), under `/api/v1` and `/health`.
-- Before it listens, the app creates `data/game-of-life.db` at the repository root (the `http` and `https` launch profiles point there) and the `board` and `generation` tables if they are missing. The log shows `schema initialised successfully`. Existing boards are kept.
-- API docs (Scalar) are at [http://localhost:8080/scalar](http://localhost:8080/scalar).
-- The raw OpenAPI document is at [http://localhost:8080/openapi/v1.json](http://localhost:8080/openapi/v1.json).
+- The API listens on [http://localhost:8080](http://localhost:8080), under `/api/v1/boards`.
+- Before it listens, the app logs the limits it uses, then creates `data/game-of-life.db` at the repository root (the `http` launch profile points there) and the `board` and `generation` tables if they are missing. The log shows `schema initialised successfully`. Existing boards are kept.
 
 Leave that terminal running. The command-line demo and the scripts use this process.
 
 To be asked whether to keep or delete the existing database first, start it with `./restart.sh` instead.
-
-A second profile also listens on `https://localhost:7001`. Skip it until you need HTTPS. The first time you use it, trust the local development certificate:
-
-```bash
-dotnet dev-certs https --trust
-```
-
-macOS asks for your keychain password. The demos below use `http://localhost:8080`.
 
 ## Demo from the command line
 
@@ -172,14 +162,11 @@ Two terminals. The first one stays on the server. The second one is where you ca
 
 Open a **second** terminal. Stay in the repository root.
 
-Confirm the process and the database:
+Confirm the process is answering. An id that was never uploaded is a `404` problem document:
 
 ```bash
-curl -i http://localhost:8080/health/live
-curl -i http://localhost:8080/health/ready
+curl -i http://localhost:8080/api/v1/boards/00000000-0000-0000-0000-000000000000
 ```
-
-Both should return `200` and the body `Healthy`. `/health/live` means the process is up. `/health/ready` means it can open the database.
 
 ### Try it
 
@@ -320,7 +307,7 @@ Stop the service first, or use another terminal. From the repository root:
 dotnet test
 ```
 
-That builds every project and runs the four test projects. They do not use the server you started with `dotnet run`, and they do not touch `data/game-of-life.db`: every test that needs a database uses its own temporary file. It does not need Docker. Every test is expected to pass; none are skipped.
+That builds every project and runs the four test projects. They do not use the server you started with `dotnet run`, and they do not touch `data/game-of-life.db`: every test that needs a database uses its own temporary file. Every test is expected to pass; none are skipped.
 
 Run one class, or one test, when a failure is in a single layer:
 
@@ -440,7 +427,7 @@ Or run `./restart.sh` and choose 2.
 
 ## Logging
 
-Logs go to the console through Serilog. The default level is Information. Grids are not logged; open the database if you need the `0`/`1` string.
+Logs go to the console, one line per entry. Levels are in the `Logging:LogLevel` section of `appsettings.json`; `GameOfLife` is the service's own code. The default is Information. Grids are not logged; open the database if you need the `0`/`1` string.
 
 | Level | What you get |
 |---|---|
@@ -451,18 +438,10 @@ Logs go to the console through Serilog. The default level is Information. Grids 
 Debug for the service's own code, for one run:
 
 ```bash
-dotnet run --project src/GameOfLife.Api --launch-profile http -- --Serilog:MinimumLevel:Override:GameOfLife=Debug
+dotnet run --project src/GameOfLife.Api --launch-profile http -- --Logging:LogLevel:GameOfLife=Debug
 ```
 
-## Optional: run it in Docker
-
-Install Docker Desktop, then from the repository root:
-
-```bash
-docker compose up --build api
-```
-
-The API is again at [http://localhost:8080](http://localhost:8080). The database file lives in a Docker volume named `game-of-life-data`, so it survives a container restart. The scripts work against it unchanged.
+Or set `"GameOfLife": "Debug"` under `Logging:LogLevel` in `appsettings.json`.
 
 ## When something fails
 
@@ -472,9 +451,9 @@ The API is again at [http://localhost:8080](http://localhost:8080). The database
 
 **Address already in use, port 8080.** Another copy is still running. Go to that terminal and press Ctrl+C, or find the process and stop it: `lsof -nP -iTCP:8080 -sTCP:LISTEN`. `./restart.sh` offers to stop it for you.
 
-**A script says nothing is listening.** The `dotnet run` terminal must still be open and must say `Now listening on: http://localhost:8080`. Use `http://`, not `https://`.
+**A script says nothing is listening.** The `dotnet run` terminal must still be open and must say `Now listening on: http://localhost:8080`. Use `http://localhost:8080`.
 
-**`/health/ready` is not Healthy.** Read the `dotnet run` log above the error. The usual cause is that the process cannot create `data/` or cannot write `data/game-of-life.db`.
+**Startup fails before `Now listening`.** Read the `dotnet run` log above the error. The usual cause is that the process cannot create `data/` or cannot write `data/game-of-life.db`.
 
 **Startup stops with `OptionsValidationException`.** A `GameOfLife` limit is below 1, or `MaxGenerationsCeiling` is below `MaxGenerations`. The message names the key.
 
@@ -484,4 +463,4 @@ The API is again at [http://localhost:8080](http://localhost:8080). The database
 
 ## Where to look next
 
-[design.md](design.md) records the design: section 3 for the project boundaries, section 5 for the HTTP contract, section 6 for which test covers which requirement. Change `GameOfLife.Domain` when the cells are wrong. Change `BoardService` when a cache or a limit is wrong. Change `BoardEndpoints` or `ApiProblems` when the status or the JSON shape is wrong.
+[design.md](design.md) records the design: section 3 for the project boundaries, section 5 for the HTTP contract, section 6 for which test covers which requirement, section 10 for every difference from the Java implementation. Change `GameOfLife.Domain` when the cells are wrong. Change `BoardService` when a cache or a limit is wrong. Change `BoardEndpoints` or `ApiProblems` when the status or the JSON shape is wrong.

@@ -16,8 +16,6 @@ public static class DependencyInjection
         services.AddSingleton(new SqliteConnectionFactory(connectionString));
         services.AddSingleton<SchemaInitializer>();
         services.AddScoped<IBoardRepository, SqliteBoardRepository>();
-        services.AddHealthChecks()
-            .AddCheck<SqliteHealthCheck>("database", tags: ["ready"]);
 
         return services;
     }

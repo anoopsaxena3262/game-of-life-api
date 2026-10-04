@@ -20,6 +20,8 @@ jobs:
   scripts:
     runs-on: ubuntu-latest
     needs: build
+    env:
+      PROBE: http://localhost:8080/api/v1/boards/00000000-0000-0000-0000-000000000000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -29,8 +31,9 @@ jobs:
       - name: Start the API
         run: |
           dotnet run --project src/GameOfLife.Api -c Release --no-build --launch-profile http > api.log 2>&1 &
+          # Any HTTP answer means it is listening. An unknown board is a 404.
           for _ in $(seq 1 60); do
-            curl -sf http://localhost:8080/health/ready && exit 0
+            curl -s -o /dev/null "$PROBE" && exit 0
             sleep 1
           done
           cat api.log
@@ -43,7 +46,7 @@ jobs:
           sleep 1
           dotnet run --project src/GameOfLife.Api -c Release --no-build --launch-profile http >> api.log 2>&1 &
           for _ in $(seq 1 60); do
-            curl -sf http://localhost:8080/health/ready && break
+            curl -s -o /dev/null "$PROBE" && break
             sleep 1
           done
           ./try-restart.sh check

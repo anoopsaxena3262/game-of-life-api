@@ -26,25 +26,11 @@ public static class BoardEndpoints
         // Authorization is intentionally not required. The call would go on this group.
         var group = app.MapGroup("/api/v1/boards");
 
-        group.MapPost("", CreateBoard)
-            .Accepts<CreateBoardRequest>("application/json")
-            .Produces<BoardResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
-        group.MapGet("/{id}", GetBoard)
-            .Produces<BoardResponse>()
-            .ProducesProblem(StatusCodes.Status404NotFound);
-        group.MapGet("/{id}/next", GetNext)
-            .Produces<GenerationResponse>()
-            .ProducesProblem(StatusCodes.Status404NotFound);
-        group.MapGet("/{id}/generations/{n}", GetGeneration)
-            .Produces<GenerationResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-        group.MapGet("/{id}/final", GetFinal)
-            .Produces<FinalStateResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        group.MapPost("", CreateBoard);
+        group.MapGet("/{id}", GetBoard);
+        group.MapGet("/{id}/next", GetNext);
+        group.MapGet("/{id}/generations/{n}", GetGeneration);
+        group.MapGet("/{id}/final", GetFinal);
 
         return app;
     }

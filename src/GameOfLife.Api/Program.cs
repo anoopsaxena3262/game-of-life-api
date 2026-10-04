@@ -41,6 +41,8 @@ else if (builder.Configuration.GetValue("OpenTelemetry:ConsoleExporter", false))
 
 var app = builder.Build();
 
+await app.Services.InitializeDatabaseAsync();
+
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 

@@ -150,7 +150,7 @@ Stop it with **Ctrl+C** in that same terminal.
 What starts:
 
 - The API listens on [http://localhost:8080](http://localhost:8080), under `/api/v1` and `/health`.
-- The app creates the directory for its SQLite file at `data/game-of-life.db`. The tables are not created yet.
+- Before it listens, the app creates `data/game-of-life.db` at the repository root (the `http` and `https` launch profiles point there) and the `board` and `generation` tables if they are missing. The log shows `schema initialised successfully`. Existing boards are kept.
 - API docs (Scalar) are at [http://localhost:8080/scalar](http://localhost:8080/scalar).
 - The raw OpenAPI document is at [http://localhost:8080/openapi/v1.json](http://localhost:8080/openapi/v1.json).
 

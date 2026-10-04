@@ -5,18 +5,18 @@ namespace GameOfLife.Infrastructure.Persistence;
 
 public sealed class BoardRepository : IBoardRepository
 {
-    public Task<Board?> FindAsync(BoardId id, CancellationToken cancellationToken) =>
+    public Task SaveAsync(Board board, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
-    public Task AddAsync(Board board, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-}
-
-public sealed class GenerationCache : IGenerationCache
-{
-    public Task<Generation?> FindAsync(BoardId boardId, int generation, CancellationToken cancellationToken) =>
+    public Task<Board?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
-    public Task SaveAsync(BoardId boardId, Generation generation, CancellationToken cancellationToken) =>
+    public Task<string?> FindGenerationAsync(Guid boardId, int index, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<int?> FindHighestCachedIndexAsync(Guid boardId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task SaveGenerationAsync(Guid boardId, int index, string state, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 }

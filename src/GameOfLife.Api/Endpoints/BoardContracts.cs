@@ -6,7 +6,11 @@ namespace GameOfLife.Api.Endpoints;
 /// Upload payload. <c>cells</c> is row-major: the outer array is rows.
 /// <code>{ "width": 3, "height": 3, "cells": [[false,true,false],[false,true,false],[false,true,false]] }</code>
 /// </summary>
-public sealed record CreateBoardRequest(int Width, int Height, bool[]?[]? Cells);
+/// <remarks>
+/// <c>width</c> and <c>height</c> are nullable only so a missing value can be told apart from 0:
+/// a missing dimension is an unreadable body, while 0 is a validation failure.
+/// </remarks>
+public sealed record CreateBoardRequest(int? Width, int? Height, bool[]?[]? Cells);
 
 /// <summary>Board metadata plus generation 0.</summary>
 public sealed record BoardResponse(Guid Id, int Width, int Height, int Generation, bool[][] Cells);

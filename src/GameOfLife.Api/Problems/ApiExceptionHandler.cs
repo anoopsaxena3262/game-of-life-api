@@ -1,3 +1,4 @@
+using GameOfLife.Api.Http;
 using GameOfLife.Application;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -5,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace GameOfLife.Api.Problems;
 
 /// <summary>Writes a problem document for every exception that reaches the pipeline.</summary>
-public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, ILogger<ApiExceptionHandler> logger)
+public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger)
     : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
@@ -24,12 +25,8 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             Log(exception, problem);
         }
 
-        httpContext.Response.StatusCode = problem.Status!.Value;
-        return await problemDetails.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = httpContext,
-            ProblemDetails = problem,
-        });
+        await ProblemWriter.WriteAsync(httpContext, problem);
+        return true;
     }
 
     private void Log(Exception exception, ProblemDetails problem)

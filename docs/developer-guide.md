@@ -149,7 +149,8 @@ Stop it with **Ctrl+C** in that same terminal.
 
 What starts:
 
-- The API listens on [http://localhost:8080](http://localhost:8080), under `/api/v1/boards`.
+- The API listens on port 8080 on every network interface ([http://localhost:8080](http://localhost:8080) from this machine), under `/api/v1/boards`. `Urls` in `appsettings.json` sets this, so running the built `GameOfLife.Api.dll` directly uses the same port.
+- `dotnet run` builds Debug. For timing, add `-c Release`: the slowest request, `/final` on a 300×300 board at the 10,000 ceiling, takes about 1.5 s in Release and about 5.5 s in Debug.
 - Before it listens, the app logs the limits it uses, then creates `data/game-of-life.db` at the repository root (the `http` launch profile points there) and the `board` and `generation` tables if they are missing. The log shows `schema initialised successfully`. Existing boards are kept.
 
 Leave that terminal running. The command-line demo and the scripts use this process.
@@ -333,6 +334,7 @@ The suite is layered. Read a failure in this order, because a red HTTP test can 
 4. `GameOfLife.Api.IntegrationTests`:
    - `ApiProblemsTests`: status, title and the `generationsAttempted` field for each error. No host.
    - `BoardApiTests` and `ApiParityTests`: the whole API in memory with its own temporary database file. Every endpoint, plus 400, 404, 415, 422, the problem document shape, a body over the size cap, and a chunked body that crosses the cap inside `cells`.
+   - `EdgeCaseParityTests` and `SpringConversionsTests`: the lenient value rules, HEAD and OPTIONS, route matching and `Accept` negotiation.
    - `RestartPersistenceTests`: start the API host, write a board and generations 0 through 4, dispose it, start a second host on the same file, and read the rows back.
 
 The API tests and the restart test boot the application. They are the wrong place to learn a single rule or a single SQL statement.

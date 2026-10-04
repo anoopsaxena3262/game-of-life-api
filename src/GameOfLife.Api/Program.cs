@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GameOfLife.Api.Endpoints;
+using GameOfLife.Api.Http;
 using GameOfLife.Api.Problems;
 using GameOfLife.Application;
 using GameOfLife.Infrastructure;
@@ -22,13 +23,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNameCaseInsensitive = false;
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper));
 });
-builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
-{
-    // RFC 7807 with no problem-type URI: type, title, status, detail and the request path.
-    context.ProblemDetails.Type = "about:blank";
-    context.ProblemDetails.Instance = context.HttpContext.Request.Path;
-    context.ProblemDetails.Extensions.Remove("traceId");
-});
+// Problem documents are written by ProblemWriter; the exception handler middleware still
+// requires the problem-details service to be registered.
+builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOptions<GameOfLifeOptions>()
     .Bind(builder.Configuration.GetSection(GameOfLifeOptions.SectionName))
@@ -48,11 +45,28 @@ await app.Services.InitializeDatabaseAsync();
 
 app.UseExceptionHandler();
 // An unknown route or a wrong method gets the same problem document as every other error.
-app.UseStatusCodePages();
+app.UseStatusCodePages(context => ProblemWriter.WriteAsync(context.HttpContext, StatusProblem(context.HttpContext)));
+app.UseMiddleware<SpringPathRules>();
+app.UseRouting();
 app.UseMiddleware<RequestSizeLimitMiddleware>();
 
 app.MapBoardEndpoints();
 
 app.Run();
+
+// The problem for a status written without a body: no route, or a method the route lacks.
+static Microsoft.AspNetCore.Mvc.ProblemDetails StatusProblem(HttpContext context)
+{
+    var status = context.Response.StatusCode;
+    var title = Microsoft.AspNetCore.WebUtilities.ReasonPhrases.GetReasonPhrase(status);
+    var detail = status switch
+    {
+        StatusCodes.Status404NotFound =>
+            $"No static resource {System.Text.RegularExpressions.Regex.Replace(context.Request.Path.Value ?? "", "/{2,}", "/").Trim('/')}.",
+        StatusCodes.Status405MethodNotAllowed => $"Method '{context.Request.Method}' is not supported.",
+        _ => null,
+    };
+    return ApiProblems.Problem(status, title, detail);
+}
 
 public partial class Program;

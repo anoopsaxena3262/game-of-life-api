@@ -1,3 +1,5 @@
+using GameOfLife.Api.Http;
+
 namespace GameOfLife.Api.Problems;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace GameOfLife.Api.Problems;
 /// </summary>
 public sealed class RequestTooLargeException(long maxBytes) : Exception($"Request body exceeds {maxBytes} bytes");
 
-/// <summary>A request the endpoint could not read: bad JSON, a bad path or query value, an unsupported media type.</summary>
+/// <summary>A request the endpoint cannot serve: bad JSON, a bad path or query value, an unsupported or unacceptable media type.</summary>
 public sealed class BadRequestException(int status, string title, string detail) : Exception(detail)
 {
     public int Status { get; } = status;
@@ -20,11 +22,15 @@ public sealed class BadRequestException(int status, string title, string detail)
     public static BadRequestException BadValue(string name, string value) =>
         new(StatusCodes.Status400BadRequest, "Bad Request", $"Failed to convert '{name}' with value: '{value}'");
 
+    /// <summary>The Accept header rules out every JSON media type the response could be written as.</summary>
+    public static BadRequestException NotAcceptable() =>
+        new(StatusCodes.Status406NotAcceptable, "Not Acceptable", JsonNegotiation.Acceptable);
+
     public static BadRequestException UnsupportedMediaType(string? contentType) =>
         new(
             StatusCodes.Status415UnsupportedMediaType,
             "Unsupported Media Type",
-            $"Content-Type '{contentType ?? "application/octet-stream"}' is not supported.");
+            $"Content-Type '{JsonNegotiation.DescribeContentType(contentType)}' is not supported.");
 }
 
 /// <summary>The upload JSON parsed but broke a field rule. Each entry is <c>field: message</c>.</summary>

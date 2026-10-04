@@ -1,0 +1,11 @@
+**/.git
+**/.vs
+**/.idea
+**/bin
+**/obj
+tests
+docs
+data
+*.md
+*.db
+*.db-*

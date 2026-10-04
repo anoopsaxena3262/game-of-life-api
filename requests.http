@@ -1,0 +1,28 @@
+@base = http://localhost:8080
+
+### live
+GET {{base}}/health/live
+
+### ready
+GET {{base}}/health/ready
+
+### 1. upload a blinker
+# @name upload
+POST {{base}}/api/v1/boards
+Content-Type: application/json
+
+{
+  "width": 5,
+  "height": 5,
+  "cells": ["00000", "00100", "00100", "00100", "00000"]
+}
+
+### 2. next state
+@id = replace-with-id
+GET {{base}}/api/v1/boards/{{id}}/next
+
+### 3. generation 4
+GET {{base}}/api/v1/boards/{{id}}/generations/4
+
+### 4. final state
+GET {{base}}/api/v1/boards/{{id}}/final?maxGenerations=100

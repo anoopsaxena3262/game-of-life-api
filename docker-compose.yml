@@ -1,0 +1,26 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Persistence__Provider: Sqlite
+      ConnectionStrings__Default: Data Source=/data/game-of-life.db
+    volumes:
+      - game-of-life-data:/data
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: gameoflife
+      POSTGRES_PASSWORD: gameoflife
+      POSTGRES_DB: gameoflife
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  game-of-life-data:
+  postgres-data:

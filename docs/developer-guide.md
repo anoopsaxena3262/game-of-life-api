@@ -16,7 +16,7 @@ Three pieces, and only the first is required to run the service:
 | Git | Copies the repository onto your machine. | Only if you do not already have the folder |
 | An editor | Visual Studio Code is enough. | Helpful, not required to run |
 
-You do not need Docker, Postgres, or a paid IDE to run or test the service.
+You do not need Docker or a paid IDE to run or test the service.
 
 This repository asks for SDK **10.0.x**. `global.json` accepts any 10.0 patch. An older SDK, such as 8 or 9, will not build it.
 
@@ -150,7 +150,7 @@ Stop it with **Ctrl+C** in that same terminal.
 What starts:
 
 - The API listens on [http://localhost:8080](http://localhost:8080), under `/api/v1` and `/health`.
-- In Development, which this launch profile sets, the app creates a SQLite file at `data/game-of-life.db` and applies the database migration.
+- The app creates the directory for its SQLite file at `data/game-of-life.db`. The tables are not created yet.
 - API docs (Scalar) are at [http://localhost:8080/scalar](http://localhost:8080/scalar).
 - The raw OpenAPI document is at [http://localhost:8080/openapi/v1.json](http://localhost:8080/openapi/v1.json).
 
@@ -177,7 +177,7 @@ curl -i http://localhost:8080/health/ready
 
 Both should return `200` and the body `Healthy`.
 
-`/health/live` means the process is up. `/health/ready` means it can open the database. A ready check that is not `200` means startup did not finish the migration.
+`/health/live` means the process is up. `/health/ready` means it can open the database. A ready check that is not `200` means the database file could not be opened.
 
 The four calls the brief asks for are below. Today each one returns **501** with a problem document, because the handlers are still stubs. The route is registered, which is what the 501 is telling you. When the rules are implemented, the same commands return the board instead.
 
@@ -228,7 +228,7 @@ Install Docker Desktop, then from the repository root:
 docker compose up --build api
 ```
 
-The API is again at [http://localhost:8080](http://localhost:8080). The database file lives in a Docker volume named `game-of-life-data`, so it survives a container restart. Postgres is defined in the same file and is not used by this command. The service runs on SQLite unless you change `Persistence__Provider`.
+The API is again at [http://localhost:8080](http://localhost:8080). The database file lives in a Docker volume named `game-of-life-data`, so it survives a container restart. The service runs on SQLite only.
 
 ## When something fails
 

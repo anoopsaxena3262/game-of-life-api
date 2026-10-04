@@ -10,7 +10,6 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Default", $"Data Source={_databasePath}");
-        builder.UseSetting("Persistence:Provider", "Sqlite");
         builder.UseSetting("OpenTelemetry:ConsoleExporter", "false");
     }
 

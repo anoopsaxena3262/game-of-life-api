@@ -18,7 +18,7 @@ public sealed class HealthAndWiringTests(ApiFactory factory) : IClassFixture<Api
     }
 
     [Fact]
-    public async Task Ready_returns_ok_once_the_database_is_migrated()
+    public async Task Ready_returns_ok_once_the_database_opens()
     {
         using var client = factory.CreateClient();
 

@@ -16,7 +16,6 @@ COPY --from=build /app ./
 USER appuser
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Development \
-    Persistence__Provider=Sqlite \
     ConnectionStrings__Default="Data Source=/data/game-of-life.db"
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

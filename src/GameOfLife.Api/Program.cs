@@ -46,7 +46,6 @@ app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
-    await GameOfLife.Infrastructure.DependencyInjection.MigrateAsync(app.Services, CancellationToken.None);
     app.MapOpenApi();
     app.MapScalarApiReference();
 }

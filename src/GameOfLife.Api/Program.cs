@@ -16,7 +16,9 @@ builder.Host.UseSerilog((context, configuration) =>
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<NotImplementedExceptionHandler>();
-builder.Services.Configure<GameOfLifeOptions>(builder.Configuration.GetSection(GameOfLifeOptions.SectionName));
+builder.Services.AddOptions<GameOfLifeOptions>()
+    .Bind(builder.Configuration.GetSection(GameOfLifeOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();
@@ -40,6 +42,12 @@ else if (builder.Configuration.GetValue("OpenTelemetry:ConsoleExporter", false))
 }
 
 var app = builder.Build();
+
+// Reading the value validates it, so a contradictory configuration stops startup here.
+var limits = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GameOfLifeOptions>>().Value;
+app.Logger.LogInformation(
+    "limits maxGenerations={MaxGenerations} ceiling={Ceiling} maxCells={MaxCells} maxCellGenerations={MaxCellGenerations} maxRequestBytes={MaxRequestBytes}",
+    limits.MaxGenerations, limits.MaxGenerationsCeiling, limits.MaxCells, limits.MaxCellGenerations, limits.MaxRequestBytes);
 
 await app.Services.InitializeDatabaseAsync();
 

@@ -335,6 +335,7 @@ The suite is layered. Read a failure in this order, because a red HTTP test can 
    - `ApiProblemsTests`: status, title and the `generationsAttempted` field for each error. No host.
    - `BoardApiTests` and `ApiParityTests`: the whole API in memory with its own temporary database file. Every endpoint, plus 400, 404, 415, 422, the problem document shape, a body over the size cap, and a chunked body that crosses the cap inside `cells`.
    - `EdgeCaseParityTests` and `SpringConversionsTests`: the lenient value rules, HEAD and OPTIONS, route matching and `Accept` negotiation.
+   - `ProblemWriterTests` and `RequestSizeLimitMiddlewareTests`: the problem document's `instance` and the declared-length size check, run directly because the in-memory server does not expose the raw request target or the client's `Content-Length`.
    - `RestartPersistenceTests`: start the API host, write a board and generations 0 through 4, dispose it, start a second host on the same file, and read the rows back.
 
 The API tests and the restart test boot the application. They are the wrong place to learn a single rule or a single SQL statement.
@@ -465,4 +466,4 @@ Or set `"GameOfLife": "Debug"` under `Logging:LogLevel` in `appsettings.json`.
 
 ## Where to look next
 
-[design.md](design.md) records the design: section 3 for the project boundaries, section 5 for the HTTP contract, section 6 for which test covers which requirement, section 10 for every difference from the Java implementation. Change `GameOfLife.Domain` when the cells are wrong. Change `BoardService` when a cache or a limit is wrong. Change `BoardEndpoints` or `ApiProblems` when the status or the JSON shape is wrong.
+[design.md](design.md) records the design: section 3 for the project boundaries, section 5 for the HTTP contract, section 6 for which test covers which requirement, section 10 for every difference from the Java implementation. [parity-report.md](parity-report.md) has the side-by-side run against the Java service. Change `GameOfLife.Domain` when the cells are wrong. Change `BoardService` when a cache or a limit is wrong. Change `BoardEndpoints` or `ApiProblems` when the status or the JSON shape is wrong.

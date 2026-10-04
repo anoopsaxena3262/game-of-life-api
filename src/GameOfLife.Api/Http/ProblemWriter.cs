@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
@@ -8,16 +9,16 @@ namespace GameOfLife.Api.Http;
 /// <summary>
 /// Writes every problem document. An error is always <c>application/problem+json</c>, whatever
 /// the client's Accept header: <c>type</c> is <c>about:blank</c> and <c>instance</c> is the
-/// request path.
+/// request path as the client sent it, unless the caller leaves it out.
 /// </summary>
 public static class ProblemWriter
 {
     public const string ContentType = "application/problem+json";
 
-    public static async Task WriteAsync(HttpContext context, ProblemDetails problem)
+    public static async Task WriteAsync(HttpContext context, ProblemDetails problem, bool includeInstance = true)
     {
         problem.Type = "about:blank";
-        problem.Instance = context.Request.Path;
+        problem.Instance = includeInstance ? RequestPath(context) : null;
         context.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
 
         // An Accept header that cannot be parsed leaves nothing the body could be written as.
@@ -29,6 +30,19 @@ public static class ProblemWriter
         context.Response.ContentType = ContentType;
         var json = context.RequestServices.GetRequiredService<IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>().Value.SerializerOptions;
         await JsonSerializer.SerializeAsync(context.Response.Body, problem, json, context.RequestAborted);
+    }
+
+    // The path as the client sent it, still percent-encoded and without the query string.
+    private static string? RequestPath(HttpContext context)
+    {
+        var raw = context.Features.Get<IHttpRequestFeature>()?.RawTarget;
+        if (string.IsNullOrEmpty(raw) || raw[0] != '/')
+        {
+            return context.Request.Path.Value;
+        }
+
+        var query = raw.IndexOf('?');
+        return query < 0 ? raw : raw[..query];
     }
 }
 

@@ -19,10 +19,14 @@ public sealed class RequestSizeLimitMiddleware(
         if (context.Request.ContentLength > max)
         {
             // An advertised length over the cap is answered here, without reading the body.
+            // This answer has no instance, as in the reference service, whose filter writes it
+            // before the request reaches the error handler.
             var tooLarge = new RequestTooLargeException(max);
             logger.LogWarning("request too large: {Detail}", tooLarge.Message);
             await ProblemWriter.WriteAsync(
-                context, ApiProblems.Problem(StatusCodes.Status400BadRequest, "Request too large", tooLarge.Message));
+                context,
+                ApiProblems.Problem(StatusCodes.Status400BadRequest, "Request too large", tooLarge.Message),
+                includeInstance: false);
             return;
         }
 

@@ -26,7 +26,8 @@ The working rule: match the Java implementation, and deviate only where .NET can
 | 5. Scripts and docs | [#6](https://github.com/anoopsaxena3262/game-of-life-api/pull/6) | `try-it.sh`, `try-all.sh`, `try-restart.sh`, `restart.sh`, `scripts/`, `requests.http` adapted; CI runs them; developer guide and design. |
 | Scaffold clean-up | [#7](https://github.com/anoopsaxena3262/game-of-life-api/pull/7) | Docker, OpenTelemetry, OpenAPI/Scalar, health checks, the HTTPS profile, Serilog, Benchmarks and FsCheck removed; design section 10. |
 | 6. Verification | — | A fresh clone of `main` built, tested and demonstrated; no fixes needed. |
-| Review | this change | A paired run against the Java service (below) found and fixed the gaps listed under "Found in review". |
+| Review | [#8](https://github.com/anoopsaxena3262/game-of-life-api/pull/8) | A paired run against the Java service (below) found and fixed the gaps listed under "Found in review". |
+| Parity report | this change | A fresh, stricter side-by-side run, written up request by request in [parity-report.md](parity-report.md). It found two more differences in `instance`, both fixed. |
 
 ## Decisions that changed during the work
 
@@ -43,7 +44,7 @@ The working rule: match the Java implementation, and deviate only where .NET can
 
 | Risk | Status | Mitigation | Verified by |
 |---|---|---|---|
-| Error responses differ from the Java service (status, title, detail, content type) | Closed | Endpoints parse values themselves; `ProblemWriter` writes every error; framework 404/405/406/415 details reproduced | 81 paired requests and 153 probe results identical to the Java service; `ApiParityTests`, `EdgeCaseParityTests` |
+| Error responses differ from the Java service (status, title, detail, instance, content type) | Closed | Endpoints parse values themselves; `ProblemWriter` writes every error; framework 404/405/406/415 details reproduced | [parity-report.md](parity-report.md); `ApiParityTests`, `EdgeCaseParityTests`, `ProblemWriterTests` |
 | Lenient input accepted by Java is rejected by .NET (or the reverse) | Closed | `SpringConversions`, `LenientBooleanConverter`, `LenientInt32Converter`, trailing JSON content ignored | Same paired run; `SpringConversionsTests`, `EdgeCaseParityTests` |
 | Stored data differs although the DDL matches (id case, timestamp format, NULL handling) | Closed | Ids bound as lowercase text, `created_at` as ISO-8601 UTC with `Z`, NULL kept as NULL | `SqliteBoardRepositoryTests`; Java and .NET databases compared column by column: identical structure, DDL text identical except one comment |
 | Board lost on restart or crash | Closed | WAL, transaction for board plus generation 0, schema created before listening | Both restart tests; `./try-restart.sh` with `kill -9` locally and in CI on every push |
@@ -65,17 +66,18 @@ The paired run against the Java service found these, all fixed in this change:
 - **HTTP behaviour.** `HEAD` and `OPTIONS`, the `Allow` header on a 405, case-sensitive routes, a trailing slash as 404, `;parameters` in a path, 406 for an unacceptable `Accept`, and the `detail` texts for 404, 405 and 415.
 - **Listening address.** The Java service listens on every interface on port 8080. The .NET service listened on loopback only, and on port 5000 when started without the launch profile. It now listens on `*:8080` from `appsettings.json`.
 - **Stored DDL indentation**, now identical.
+- **`instance` in a problem document** (found by the parity-report run): it is now the path as the client sent it, still percent-encoded, and it is left out of the size-limit answer for a declared `Content-Length`, as in the Java service.
 
 ## Verification record
 
 | Check | Result |
 |---|---|
 | `dotnet build -c Release` (warnings are errors) | 0 warnings |
-| `dotnet test` | 213 passed, none skipped: Domain 28, Application 23, Infrastructure 13, API 149 |
+| `dotnet test` | 218 passed, none skipped: Domain 28, Application 23, Infrastructure 13, API 154 |
 | `./try-all.sh` against `dotnet run` | 24 of 24 scenarios, locally and in CI |
 | `./try-restart.sh` across `kill -9` | Board and generations 0–10 survive, locally and in CI |
 | `./restart.sh` keep / delete | Board kept (200) / removed (404) |
-| Paired run against the Java service | 81 requests: status, content type, title, detail, body and `Allow` identical. 153 probe results identical |
+| Paired run against the Java service ([parity-report.md](parity-report.md)) | 81 of 81 requests identical, 152 of 153 probes (the other is a Java `detail` that cannot be reproduced), 33 of 33 scenario reads. Compared: status, media type, problem `type`, `title`, `detail`, `instance` and extensions, success body, `Allow` |
 | Schema compared with the Java database | Columns, types, constraints, keys, indexes and journal mode identical |
 | Concurrency and timing | As in the risk register |
 | Coverage (`dotnet test --collect:"XPlat Code Coverage"`) | Domain 99%, Application 100%, Infrastructure 97% |

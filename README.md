@@ -6,7 +6,7 @@ Upload a board, read any generation, and walk it to its final state: extinct, a 
 
 ## Run
 
-Setup from a machine that has never used .NET, and how to call the service, is in [docs/developer-guide.md](docs/developer-guide.md). The design and the reasons behind it are in [docs/design.md](docs/design.md); section 10 lists every difference from the Java implementation and why.
+Setup from a machine that has never used .NET, and how to call the service, is in [docs/developer-guide.md](docs/developer-guide.md). The design and the reasons behind it are in [docs/design.md](docs/design.md); section 10 lists every difference from the Java implementation and why. [docs/porting-plan.md](docs/porting-plan.md) records how the port was done, the risks and how each was verified.
 
 ```bash
 dotnet run --project src/GameOfLife.Api --launch-profile http
@@ -52,4 +52,4 @@ Every test uses its own temporary SQLite file. No running service is needed.
 | `tests/` | One test project per layer. |
 | `try-it.sh`, `try-all.sh`, `scripts/` | HTTP scenarios against a running service. |
 | `try-restart.sh`, `restart.sh` | The restart demo, and a start that asks about the existing database. |
-| `docs/` | Developer guide and design. |
+| `docs/` | Developer guide, design, and the porting plan. |

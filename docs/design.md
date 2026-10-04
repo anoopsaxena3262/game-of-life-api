@@ -42,7 +42,7 @@ Authentication, authorisation, multi-tenancy, board deletion and listing, UI, ho
 | `MaxGenerationsCeiling` | 10,000 | The largest index `/generations/{n}` will compute, and the largest `maxGenerations` a caller can ask for. A higher `maxGenerations` is clamped, not rejected. The ceiling must be at least the default, so a mis-set ceiling cannot silently shrink the default. |
 | `MaxCellGenerations` | 5,000,000 | Cells × generations for one `/generations/{n}` computation. That endpoint writes one state string per step. A 300×300 board can store `floor(5_000_000 / 90_000) = 55` generations. |
 
-A state is a string of length `width * height`. `/final` writes nothing. It keeps a fingerprint of each step and compares full strings only when two fingerprints match (§4.3). Confirming a match replays from the nearest checkpoint, every 256 generations, rather than from generation 0. Its cap is the generation ceiling: a caller who asks for more than 10,000 is clamped to 10,000, and a caller who asks for nothing walks the default of 1,000. A glider in the corner of a 300×300 board is still moving at generation 1,000, so the default `/final` is a 422; asking for up to the ceiling reaches the corner still life at generation 1,192, in about five seconds. The cell-generation budget does not apply to `/final`.
+A state is a string of length `width * height`. `/final` writes nothing. It keeps a fingerprint of each step and compares full strings only when two fingerprints match (§4.3). Confirming a match replays from the nearest checkpoint, every 256 generations, rather than from generation 0. Its cap is the generation ceiling: a caller who asks for more than 10,000 is clamped to 10,000, and a caller who asks for nothing walks the default of 1,000. A glider in the corner of a 300×300 board is still moving at generation 1,000, so the default `/final` is a 422; asking for up to the ceiling reaches the corner still life at generation 1,192. That walk takes about 1.5 s in a Release build and about 5.5 s under `dotnet run`, which builds Debug (§8). The cell-generation budget does not apply to `/final`.
 
 There is no request-processing timeout. A `/generations` walk that fits the budget, and a `/final` walk inside the generation ceiling, run to the end.
 
@@ -193,7 +193,10 @@ Base path `/api/v1`. JSON throughout. Errors are RFC 7807 problem documents (`ap
 - Limit resolution for `/final`: the query parameter if present, otherwise `board.max_generations` if non-null, otherwise `GameOfLife:MaxGenerations`; then clamped to the ceiling. An empty `maxGenerations=` is treated as absent.
 - Input is validated at the edge. `width` or `height` below 1, or a missing `cells`, is title `Validation failed`, with each field listed: `width: must be greater than or equal to 1; cells: must not be null`. A grid whose rows do not match the declared size, or over `MaxCells`, is title `Invalid board`.
 - The endpoints parse the path id, `n`, `maxGenerations` and the body themselves rather than relying on framework binding. A value that does not convert is title `Bad Request` with detail `Failed to convert 'id' with value: 'not-a-uuid'`; a body that is not JSON is `Bad Request` with `Failed to read request`. A UUID that is not stored is `404`.
-- Unknown routes (404), a wrong method (405), and an unsupported media type (415) are problem documents too.
+- Unknown routes (404, detail `No static resource api/v1/…`), a wrong method (405, detail `Method 'DELETE' is not supported.`, `Allow` listing the mapped methods), an unacceptable `Accept` header (406) and an unsupported media type (415, detail `Content-Type 'text/plain;charset=UTF-8' is not supported.`) are problem documents too. An error is always written as `application/problem+json`, whatever the `Accept` header says.
+- `HEAD` answers like `GET` without a body. `OPTIONS` answers `200` with `Allow: GET,HEAD,OPTIONS`, or `POST,OPTIONS` on `/boards`.
+- Routes are case-sensitive and do not match a trailing slash: `/API/v1/boards/{id}` and `/api/v1/boards/{id}/` are `404`. A `;name=value` parameter inside a path segment is removed before matching.
+- A successful body is `application/json`, or the `application/*+json` type the `Accept` header names. An `Accept` header that allows no JSON type is `406` after the request has run, so an upload with such a header still stores the board.
 - A missing resume row, when the board itself exists, is a 500. That is a broken cache, not an unknown board.
 - No `GET` changes the stored board. The only writes outside `POST /boards` go to the cache, and only from `/next` and `/generations/{n}`.
 - Resuming a generation read starts at the highest cached index at or below the one requested. If the cache is already past it and the requested row is missing, the walk starts again from generation 0. It never returns a later row as if it were the requested generation.
@@ -239,7 +242,17 @@ Upload, generation 0 of a horizontal blinker:
 }
 ```
 
-Cells must be JSON booleans. `1`, `0` or `"true"` in `cells` is a 400 `Bad Request`.
+#### Request leniency
+
+Path, query and body values are read leniently, the same way as the reference implementation:
+
+| Value | Accepted | Rejected (`400 Bad Request`) |
+|---|---|---|
+| A cell | `true`, `false`; any integer (`0` is false, any other is true); the strings `true`, `True`, `TRUE`, `false`, `False`, `FALSE`, trimmed | fractions, any other string, `null`, arrays |
+| `width`, `height` | integers; fractions and exponents, truncated toward zero, within `int` range; strings holding a signed decimal integer, trimmed | a missing or `null` value, other strings, `true`/`false`, values outside `int` |
+| The body | one JSON object; anything after it is ignored; a UTF-8 byte-order mark is skipped | comments, trailing commas, a body that does not start with an object |
+| `n`, `maxGenerations` | decimal with an optional sign and leading zeros; hexadecimal with `0x`, `0X` or `#`; whitespace anywhere is removed first. A blank `maxGenerations` is absent. With a repeated `maxGenerations`, the first value wins; the name is case-sensitive | fractions, values outside `int` |
+| `id` | a canonical UUID in either case; short forms such as `1-1-1-1-1` (each field may start with `+`, and a field longer than its slot keeps its low digits); surrounding spaces trimmed | more than 36 characters, fewer or more than five fields, an empty field, a non-hex character |
 
 ---
 
@@ -252,7 +265,7 @@ Cells must be JSON booleans. `1`, `0` or `"true"` in `cells` is a 400 `Bad Reque
 3. **Termination tests**: fixed point, cycle, extinction, no conclusion, a forced hash collision that is not a cycle, and a cycle confirmed from a checkpoint.
 4. **Repository and schema tests** (`GameOfLife.Infrastructure.Tests`) against a temporary SQLite file, including the stored id and timestamp format, the foreign key, and the exact schema.
 5. **Service tests** (`GameOfLife.Application.Tests`) over an in-memory fake repository and a fixed clock, plus options validation.
-6. **API tests** (`GameOfLife.Api.IntegrationTests`): the whole API in memory, on its own temporary database file. Every endpoint in §5; the 404, 400, 415 and 422 bodies; the problem document shape; a body over the size cap and a chunked body that crosses it inside `cells`; and the exception-to-problem mapping on its own.
+6. **API tests** (`GameOfLife.Api.IntegrationTests`): the whole API in memory, on its own temporary database file. Every endpoint in §5; the 404, 400, 415 and 422 bodies; the problem document shape; a body over the size cap and a chunked body that crosses it inside `cells`; and the exception-to-problem mapping on its own. `EdgeCaseParityTests` and `SpringConversionsTests` pin the request-leniency rules, HEAD and OPTIONS, route matching and content negotiation, with the reference service's answers as the expected values.
 7. **Restart test**: a board is created and advanced through `BoardService`, the host is disposed, a second host starts on the same file, and the board and its cached generations are asserted intact.
 
 Line coverage on the last run: `GameOfLife.Domain` 99%, `GameOfLife.Application` 100%, `GameOfLife.Infrastructure` 97%. Collect it with `dotnet test --collect:"XPlat Code Coverage"`. The build does not fail below a threshold.
@@ -281,7 +294,8 @@ Line coverage on the last run: `GameOfLife.Domain` 99%, `GameOfLife.Application`
 | Null cell | `BoardApiTests.A_null_cell_is_rejected_instead_of_stored_as_dead` |
 | Oversized board | `BoardServiceTests.Rejects_a_board_exceeding_the_configured_cell_cap`, `ApiParityTests.A_board_over_max_cells_is_an_invalid_board` |
 | Request body over the byte cap | `BoardApiTests.A_body_over_the_request_size_limit_is_rejected`, `BoardApiTests.A_chunked_body_that_crosses_the_cap_inside_cells_is_request_too_large` |
-| Problem document shape | `ApiParityTests.Problem_documents_have_the_rfc_7807_shape_without_a_trace_id` |
+| Problem document shape | `ApiParityTests.Problem_documents_have_the_rfc_7807_shape_without_a_trace_id`, `EdgeCaseParityTests.An_error_is_a_problem_document_whatever_the_accept_header` |
+| Request leniency, HEAD, OPTIONS, route matching, Accept | `EdgeCaseParityTests`, `SpringConversionsTests` |
 | Broken generation cache | `BoardServiceTests.Missing_board_and_missing_resume_point` |
 | Durability, cache survives restart | `RestartPersistenceTests.Board_and_cached_generations_survive_an_application_restart` |
 | Stored schema | `SchemaInitializerTests` |
@@ -310,7 +324,9 @@ Two concurrent requests may compute the same uncached generation at once. The wr
 
 SQLite allows one writer at a time. Readers proceed concurrently because the file is in WAL mode. A writer that finds the database locked retries for `Default Timeout` (five seconds); past that it fails with `SQLITE_BUSY`, which surfaces as a 500. The cell-generation budget is what keeps a single write from running that long on the boards this service accepts.
 
-`/final` is CPU-bound and runs on a thread-pool thread for its whole walk. At the generation ceiling on a 300×300 board that is several seconds of one core.
+`/final` is CPU-bound and runs on a thread-pool thread for its whole walk. At the generation ceiling on a 300×300 board that is about 1.5 s of one core in a Release build; the reference implementation takes about 2.5 s on the same machine. `dotnet run` builds Debug, which is roughly four times slower; use `dotnet run -c Release` when timing.
+
+Concurrent load was checked against the reference implementation: 40 parallel reads of the same uncached generation return one identical body with no errors, and 20 parallel uploads return 20 distinct ids, in both.
 
 ## 9. Logging
 
@@ -333,17 +349,17 @@ This service is a port of a Java 25 / Spring Boot implementation. The API, the s
 | Structure | One Maven module, packages `web`, `service`, `domain`, `repository` | Four projects: `Api`, `Application`, `Domain`, `Infrastructure` | Project references make the layer rules a compile-time check: `Domain` cannot reference ASP.NET or SQLite. In Java the same boundary is a convention. |
 | Start command | `mvn spring-boot:run` | `dotnet run --project src/GameOfLife.Api --launch-profile http` | Platform tooling. |
 | Database path | `data/game-of-life.db`, relative to the directory Maven runs in | The `http` launch profile sets `../../data/game-of-life.db` | `dotnet run` starts the app in the project folder, not the repository root. The relative path puts the file in the same place, `data/` under the repository root. |
-| Configuration | `application.yml`, `game-of-life.max-cells`, … | `appsettings.json`, `GameOfLife:MaxCells`, … | .NET configuration conventions. Same five limits, same defaults, same startup checks. |
+| Configuration | `application.yml`, `game-of-life.max-cells`, … | `appsettings.json`, `GameOfLife:MaxCells`, … | .NET configuration conventions. Same five limits, same defaults, same startup checks. The stored `board` DDL is identical except the comment on `max_generations`, which names this setting. |
 | Data access | `JdbcClient` over a Hikari pool | ADO.NET over `Microsoft.Data.Sqlite`, which pools connections itself | Platform equivalent. Same SQL. |
 | Foreign keys and busy wait | Hikari `connection-init-sql: PRAGMA foreign_keys=ON`; `busy_timeout=5000` on the JDBC URL | `Foreign Keys=True` (set in code) and `Default Timeout=5` on the connection string | The .NET driver turns foreign keys on per connection from the connection string, and retries a locked database until `Default Timeout` (seconds) runs out. Same effect. |
 | `created_at` precision | `Instant.toString()`: 0, 3, 6 or 9 fractional digits | Up to 7 fractional digits, trailing zeros dropped | .NET timestamps have 100 ns resolution. Both are ISO-8601 UTC ending in `Z`. |
 | Async | Synchronous service and repository | `async` service and repository | Idiomatic for ASP.NET Core. The order of reads and writes is the same. |
-| Request binding and validation | Jackson plus Bean Validation (`@Min(1)`, `@NotNull`) | The endpoints read the body and parse `id`, `n` and `maxGenerations` themselves, with the same messages | Minimal APIs have no Bean Validation equivalent, and framework binding answers a malformed GUID with 404 (route constraint) and a bad body with an empty 400. Parsing in the endpoint keeps every status, title and detail the same. |
-| Id format accepted | `UUID.fromString`, which also accepts short forms such as `1-1-1-1-1` | Canonical 8-4-4-4-12 only, either case | .NET has no lenient UUID parser with the same rules. A short-form id is a 400 here; in Java it would be a 404. |
-| Cell values | Jackson accepts `true`/`false`, and also coerces `1`/`0` and `"true"`/`"false"` | Only `true`/`false`; anything else is a 400 `Bad Request` | System.Text.Json does not coerce numbers or strings to booleans. The scripts send `true`/`false`. |
-| Framework error details | Spring writes its own `detail` for an unknown route, 405 and 415 | Same status and title; an unknown route and 405 have no `detail`, 415 names the content type | The texts come from each framework. The scripts check status and title. |
+| Request binding and validation | Spring conversion, Jackson, Bean Validation | `SpringConversions`, `LenientBooleanConverter`, `LenientInt32Converter`, `SpringPathRules`, `JsonNegotiation` reproduce the same rules (§5, Request leniency) | Neither ASP.NET Core binding nor System.Text.Json has these rules: binding answers a malformed GUID with 404 and a bad body with an empty 400, and System.Text.Json does not coerce numbers or strings to booleans. Each rule was checked against the reference service: 81 paired requests and 153 probe results matched. |
+| Unexpected errors (500) | Spring Boot's error JSON: `timestamp`, `status`, `error`, `path` | A problem document with title `Internal Server Error` | The 500 path (a cache row missing under a stored board) cannot be reached through the API, so the shapes were not compared. A problem document keeps every error in one format. |
+| Non-ASCII digits | `Integer.valueOf` accepts any Unicode decimal digit in `n` and `maxGenerations` | ASCII digits only in decimal values; UUID fields accept Unicode digits | .NET integer parsing is ASCII-only. A path with such digits has to be percent-encoded, so no client sends one by accident. |
+| Build configuration | `mvn spring-boot:run` runs optimised code | `dotnet run` builds Debug; the 300×300 `/final` walk takes about 5.5 s, against 1.5 s in Release and 2.5 s in the reference | Debug is the .NET default for local runs. Use `dotnet run -c Release` when timing. |
 | Logging | Logback; levels under `logging.level.life.simulation.engine`; TRACE per cell inside `LifeEngine` | Built-in console logger; levels under `Logging:LogLevel:GameOfLife`; no logging inside `Domain` | .NET gets loggers through dependency injection. The domain is static functions with no container, and a static global logger would be the only one in the codebase. The service logs the same outcomes. There is no per-cell TRACE. |
-| Tests | JUnit 5, AssertJ, Mockito; 72 tests | xUnit; 105 tests; a hand-written in-memory repository instead of mocks | No mocking library is needed for one interface. The extra tests pin the stored schema and the HTTP contract the scripts check. Java's "global validation message" handler test has no counterpart, because the .NET endpoints raise no object-level validation errors. |
+| Tests | JUnit 5, AssertJ, Mockito; 72 tests | xUnit; 213 tests; a hand-written in-memory repository instead of mocks | No mocking library is needed for one interface. The extra tests pin the stored schema, the HTTP contract the scripts check, and the request-leniency rules with the reference service's answers. Java's "global validation message" handler test has no counterpart, because the .NET endpoints raise no object-level validation errors. |
 | Coverage | JaCoCo report on every `mvn test` | `coverlet` on request: `dotnet test --collect:"XPlat Code Coverage"` | Platform tooling. |
 | `requests.http` | Literal `{id}` placeholders | `@base` and `@id` variables | Variables work in Visual Studio, Rider and the VS Code REST Client. |
 | CI | None | GitHub Actions: build and test, then `./try-all.sh` and the `kill -9` restart against a running service | An addition, not a difference in behaviour. It runs the same scripts on every push. |

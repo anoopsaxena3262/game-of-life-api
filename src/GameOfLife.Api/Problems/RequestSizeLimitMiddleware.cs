@@ -1,5 +1,5 @@
+using GameOfLife.Api.Http;
 using GameOfLife.Application;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace GameOfLife.Api.Problems;
@@ -11,7 +11,6 @@ namespace GameOfLife.Api.Problems;
 public sealed class RequestSizeLimitMiddleware(
     RequestDelegate next,
     IOptions<GameOfLifeOptions> options,
-    IProblemDetailsService problemDetails,
     ILogger<RequestSizeLimitMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context)
@@ -22,12 +21,8 @@ public sealed class RequestSizeLimitMiddleware(
             // An advertised length over the cap is answered here, without reading the body.
             var tooLarge = new RequestTooLargeException(max);
             logger.LogWarning("request too large: {Detail}", tooLarge.Message);
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await problemDetails.WriteAsync(new ProblemDetailsContext
-            {
-                HttpContext = context,
-                ProblemDetails = ApiProblems.Problem(StatusCodes.Status400BadRequest, "Request too large", tooLarge.Message),
-            });
+            await ProblemWriter.WriteAsync(
+                context, ApiProblems.Problem(StatusCodes.Status400BadRequest, "Request too large", tooLarge.Message));
             return;
         }
 

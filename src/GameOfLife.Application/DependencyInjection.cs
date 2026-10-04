@@ -11,11 +11,6 @@ public static class DependencyInjection
         services.AddSingleton<IValidateOptions<GameOfLifeOptions>, GameOfLifeOptionsValidator>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<BoardService>();
-
-        services.AddScoped<ICreateBoard, CreateBoardHandler>();
-        services.AddScoped<IGetBoard, GetBoardHandler>();
-        services.AddScoped<IGetGeneration, GetGenerationHandler>();
-        services.AddScoped<IGetFinalState, GetFinalStateHandler>();
         return services;
     }
 }

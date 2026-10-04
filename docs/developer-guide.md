@@ -4,7 +4,7 @@ Set up a machine that has never used C# or .NET, then run the Game of Life API.
 
 The Game of Life API is a small web service. You show it from the command line by calling the API.
 
-The rules and the four board endpoints are still stubs. After the service starts, those calls answer **501 Not Implemented**. Health checks, the API docs page, and the database startup path do work. The sections below tell you what to expect from each.
+The service stores boards in SQLite and serves the board endpoints, the health checks and the API docs page. The sections below tell you what to expect from each.
 
 ## What you are installing
 
@@ -179,36 +179,37 @@ Both should return `200` and the body `Healthy`.
 
 `/health/live` means the process is up. `/health/ready` means it can open the database. A ready check that is not `200` means the database file could not be opened.
 
-The four calls the brief asks for are below. Today each one returns **501** with a problem document, because the handlers are still stubs. The route is registered, which is what the 501 is telling you. When the rules are implemented, the same commands return the board instead.
+The four board calls are below. Every error is a problem document (`application/problem+json`) with `type`, `title`, `status`, `detail` and `instance`.
 
-Upload a blinker (three live cells in a column):
+Upload a blinker (three live cells in a row):
 
 ```bash
 curl -i -X POST http://localhost:8080/api/v1/boards \
   -H 'Content-Type: application/json' \
-  -d '{"width":5,"height":5,"cells":["00000","00100","00100","00100","00000"]}'
+  -d '{"width":3,"height":3,"cells":[[false,false,false],[true,true,true],[false,false,false]]}'
 ```
 
-After upload works, the response body contains an `id`. Use it in the next three calls. A placeholder is shown here:
+The response is `201` with a `Location` header and a body that contains the `id`. Use it in the next three calls:
 
 ```bash
-ID=00000000-0000-0000-0000-000000000000
+ID=<the id from the upload>
 
 curl -i http://localhost:8080/api/v1/boards/$ID/next
 curl -i http://localhost:8080/api/v1/boards/$ID/generations/4
-curl -i "http://localhost:8080/api/v1/boards/$ID/final?maxGenerations=100"
+curl -i http://localhost:8080/api/v1/boards/$ID/final
 ```
 
 On PowerShell, use `curl.exe` so you get the same program, or send the requests from `requests.http`. In Visual Studio Code, the REST Client extension can send each block in that file.
 
-`0` is a dead cell and `1` is a live cell. One string is one row. The example above is a 5 by 5 board.
+`cells` is row-major: the outer array is rows, `true` is a live cell. The example above is a 3 by 3 board.
 
 | Call | What it asks |
 |---|---|
 | `POST /api/v1/boards` | Store this starting board and return its id. |
 | `GET /api/v1/boards/{id}/next` | The board one generation later. |
 | `GET /api/v1/boards/{id}/generations/4` | The board four generations after upload. |
-| `GET /api/v1/boards/{id}/final?maxGenerations=100` | The still state, or an error if the board does not settle within that many generations. A blinker never settles. |
+| `GET /api/v1/boards/{id}` | The uploaded board, generation 0. |
+| `GET /api/v1/boards/{id}/final` | The state where the board concludes, with `terminationKind` (`EXTINCT`, `FIXED_POINT` or `CYCLE`), `period` and `generationsLimit`. `422` if it does not conclude within the limit. A blinker is a `CYCLE` with period 2. Pass `maxGenerations` to change the limit, up to 10000. |
 
 ## Run the tests
 
@@ -218,7 +219,7 @@ Stop the service first, or use another terminal. From the repository root:
 dotnet test
 ```
 
-That builds every project and runs the test projects. The default run uses SQLite in a temporary file. It does not need Docker. Skipped tests are named skeletons for rules that are not written yet. A passing run with some skips is the expected result on this scaffold.
+That builds every project and runs the test projects. The default run uses SQLite in a temporary file. It does not need Docker. Every test is expected to pass; none are skipped.
 
 ## Optional: run it in Docker
 
@@ -244,4 +245,4 @@ The API is again at [http://localhost:8080](http://localhost:8080). The database
 
 **Restore or build cannot download packages.** The first build needs a network connection to NuGet. Retry `dotnet build` from the repository root.
 
-**You expected a board back and got 501.** That is the current scaffold. The route exists. The Game of Life step is not implemented yet.
+**`/final` returned 422.** The board did not reach a fixed point or a cycle within the limit. The body's `generationsAttempted` says how far the walk went. Retry with a larger `maxGenerations`, up to 10000.
